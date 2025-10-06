@@ -1,3 +1,4 @@
+
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
@@ -6,270 +7,331 @@ import java.io.File;
 import java.sql.*;
 import java.util.regex.Pattern;
 
-/**
- * SALSA Dance Festival Registration System
- * GUI Application with MS Access Database Integration
- * 
- * Features:
- * - Register new participants
- * - Search by Registration ID
- * - Update participant details
- * - Delete participants
- * - Image upload and display
- * - Input validation
- * 
- * Database: VUE_Exhibition.accdb
- * Required Library: UCanAccess (ucanaccess-5.0.1.jar and dependencies)
- */
+
 public class SALSARegistrationSystem extends JFrame {
-    
+
     // Database connection details
-    private static final String DB_PATH = "VUE_Exhibition.accdb";
+    private static final String DB_PATH = new File("src/main/resources/database/VUE_Exhibition.accdb").getAbsolutePath();
     private static final String DB_URL = "jdbc:ucanaccess://" + DB_PATH;
-    
+
     // GUI Components
     private JTextField txtRegID, txtName, txtDepartment, txtPartner, txtContact, txtEmail;
     private JLabel lblImagePreview;
     private JButton btnRegister, btnSearch, btnUpdate, btnDelete, btnClear, btnExit, btnUploadImage;
     private String selectedImagePath = "";
-    
-    // Email validation pattern
-    private static final Pattern EMAIL_PATTERN = 
-        Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
-    
+
+    private static final Pattern EMAIL_PATTERN
+            = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+
+    private boolean isDatabaseInitialized = false;
+
     public SALSARegistrationSystem() {
         initializeDatabase();
+        if (isDatabaseInitialized) {
+            seedTestData();
+        }
         initializeGUI();
     }
+
     
-    /**
-     * Initialize database and create table if not exists
-     */
     private void initializeDatabase() {
+        File dbFile = new File(DB_PATH);
+        if (!dbFile.exists()) {
+            showError("Database file not found at: " + DB_PATH);
+            System.err.println("Database file missing: " + DB_PATH);
+            return;
+        }
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
-            String createTableSQL = "CREATE TABLE IF NOT EXISTS Participants (" +
-                "RegistrationID VARCHAR(50) PRIMARY KEY, " +
-                "Name VARCHAR(100) NOT NULL, " +
-                "Department VARCHAR(100), " +
-                "Partner VARCHAR(100), " +
-                "Contact VARCHAR(20), " +
-                "Email VARCHAR(100), " +
-                "ImagePath VARCHAR(255))";
-            
-            Statement stmt = conn.createStatement();
-            stmt.execute(createTableSQL);
-            System.out.println("Database initialized successfully!");
+            System.out.println("Connected to database successfully!");
+            DatabaseMetaData dbMeta = conn.getMetaData();
+            ResultSet tables = dbMeta.getTables(null, null, "Participants", null);
+
+            if (!tables.next()) { 
+                String createTableSQL = "CREATE TABLE Participants ("
+                        + "RegistrationID TEXT PRIMARY KEY, "
+                        + "Name TEXT NOT NULL, "
+                        + "Department TEXT, "
+                        + "Partner TEXT, "
+                        + "Contact TEXT, "
+                        + "Email TEXT, "
+                        + "ImagePath TEXT)";
+                try (Statement stmt = conn.createStatement()) {
+                    stmt.execute(createTableSQL);
+                    System.out.println("Table created successfully!");
+                }
+            } else {
+                System.out.println("Table 'Participants' already exists!");
+            }
+
+            isDatabaseInitialized = true;
         } catch (SQLException e) {
+            e.printStackTrace();
             showError("Database Initialization Error: " + e.getMessage());
         }
     }
-    
+
+ 
+    private void seedTestData() {
+        // Check if table is empty
+        try (Connection conn = DriverManager.getConnection(DB_URL); Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM Participants")) {
+
+            if (rs.next() && rs.getInt(1) > 0) {
+                System.out.println("Table already has data, skipping seeding.");
+                return;
+            }
+
+            System.out.println("Seeding 10 test entries...");
+
+            String insertSQL = "INSERT INTO Participants (RegistrationID, Name, Department, "
+                    + "Partner, Contact, Email, ImagePath) VALUES (?, ?, ?, ?, ?, ?, ?)";
+
+            try (PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
+                for (int i = 1; i <= 10; i++) {
+                    pstmt.setString(1, "TEST" + String.format("%03d", i));
+                    pstmt.setString(2, "Test User " + i);
+                    pstmt.setString(3, "Department " + ((i % 3) + 1));
+                    pstmt.setString(4, "Partner " + i);
+                    pstmt.setString(5, "123456789" + i);
+                    pstmt.setString(6, "test" + i + "@example.com");
+                    pstmt.setString(7, ""); // Empty image path for test data
+
+                    int rowsInserted = pstmt.executeUpdate();
+                    if (rowsInserted > 0) {
+                        System.out.println("Seeded entry: TEST" + String.format("%03d", i));
+                    }
+                }
+                System.out.println("Seeding completed successfully!");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            showError("Seeding Error: " + e.getMessage());
+        }
+    }
+
     /**
      * Initialize GUI components
      */
     private void initializeGUI() {
         setTitle("SALSA Dance Festival - Registration System");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLayout(new BorderLayout(10, 10));
-        getContentPane().setBackground(new Color(245, 245, 250));
-        
+        setLayout(new BorderLayout(15, 15));
+        getContentPane().setBackground(new Color(240, 240, 245));
+
+        // Main container with padding
+        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        mainPanel.setBackground(new Color(240, 240, 245));
+
         // Header Panel
         JPanel headerPanel = createHeaderPanel();
-        add(headerPanel, BorderLayout.NORTH);
-        
-        // Main Form Panel
+        mainPanel.add(headerPanel, BorderLayout.NORTH);
+
+        // Form and Image Panel
+        JPanel contentPanel = new JPanel(new GridLayout(1, 2, 20, 0));
+        contentPanel.setBackground(new Color(240, 240, 245));
+
+        // Form Panel
         JPanel formPanel = createFormPanel();
-        add(formPanel, BorderLayout.CENTER);
-        
+        contentPanel.add(formPanel);
+
+        // Image Panel
+        JPanel imagePanel = createImagePanel();
+        contentPanel.add(imagePanel);
+
+        mainPanel.add(contentPanel, BorderLayout.CENTER);
+
         // Button Panel
         JPanel buttonPanel = createButtonPanel();
-        add(buttonPanel, BorderLayout.SOUTH);
-        
-        // Set frame properties
-        setSize(900, 700);
+        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
+
+        add(mainPanel);
+
+        setSize(900, 600);
         setLocationRelativeTo(null);
-        setResizable(false);
+        setResizable(true);
     }
-    
+
     /**
      * Create header panel with title
      */
     private JPanel createHeaderPanel() {
-        JPanel panel = new JPanel();
-        panel.setBackground(new Color(139, 0, 139)); // Dark Magenta
-        panel.setPreferredSize(new Dimension(900, 80));
-        
-        JLabel title = new JLabel("SALSA DANCE FESTIVAL");
-        title.setFont(new Font("Arial", Font.BOLD, 28));
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(new Color(139, 0, 139));
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        JLabel title = new JLabel("SALSA Dance Festival");
+        title.setFont(new Font("Arial", Font.BOLD, 24));
         title.setForeground(Color.WHITE);
-        
+        title.setHorizontalAlignment(SwingConstants.CENTER);
+
         JLabel subtitle = new JLabel("Exhibition Registration System");
-        subtitle.setFont(new Font("Arial", Font.PLAIN, 16));
-        subtitle.setForeground(Color.WHITE);
-        
-        panel.setLayout(new GridLayout(2, 1));
-        panel.add(title);
-        panel.add(subtitle);
-        
+        subtitle.setFont(new Font("Arial", Font.ITALIC, 16));
+        subtitle.setForeground(new Color(220, 220, 220));
+        subtitle.setHorizontalAlignment(SwingConstants.CENTER);
+
+        panel.add(title, BorderLayout.CENTER);
+        panel.add(subtitle, BorderLayout.SOUTH);
+
         return panel;
     }
-    
+
     /**
      * Create main form panel with input fields
      */
     private JPanel createFormPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new GridBagLayout());
+        JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(Color.WHITE);
-        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-        
+        panel.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(new Color(139, 0, 139), 2),
+                "Participant Details",
+                javax.swing.border.TitledBorder.DEFAULT_JUSTIFICATION,
+                javax.swing.border.TitledBorder.TOP,
+                new Font("Arial", Font.BOLD, 16),
+                new Color(139, 0, 139)
+        ));
+
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.insets = new Insets(8, 15, 8, 15);
         gbc.anchor = GridBagConstraints.WEST;
-        
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
         // Initialize text fields
-        txtRegID = new JTextField(20);
-        txtName = new JTextField(20);
-        txtDepartment = new JTextField(20);
-        txtPartner = new JTextField(20);
-        txtContact = new JTextField(20);
-        txtEmail = new JTextField(20);
-        
-        // Registration ID
-        addFormField(panel, "Registration ID:", txtRegID, gbc, 0);
-        
-        // Name
-        addFormField(panel, "Full Name:", txtName, gbc, 1);
-        
-        // Department
-        addFormField(panel, "Department:", txtDepartment, gbc, 2);
-        
-        // Partner
-        addFormField(panel, "Dance Partner:", txtPartner, gbc, 3);
-        
-        // Contact
-        addFormField(panel, "Contact Number:", txtContact, gbc, 4);
-        
-        // Email
-        addFormField(panel, "Email Address:", txtEmail, gbc, 5);
-        
-        // Image Upload Section
-        gbc.gridx = 0;
-        gbc.gridy = 6;
-        JLabel lblImage = new JLabel("ID Photo:");
-        lblImage.setFont(new Font("Arial", Font.BOLD, 14));
-        panel.add(lblImage, gbc);
-        
-        gbc.gridx = 1;
-        JPanel imagePanel = new JPanel();
-        imagePanel.setLayout(new BorderLayout(5, 5));
-        imagePanel.setBackground(Color.WHITE);
-        
-        lblImagePreview = new JLabel("No image selected");
-        lblImagePreview.setPreferredSize(new Dimension(150, 150));
-        lblImagePreview.setBorder(BorderFactory.createLineBorder(Color.GRAY, 2));
-        lblImagePreview.setHorizontalAlignment(SwingConstants.CENTER);
-        
-        btnUploadImage = new JButton("Choose Image");
-        btnUploadImage.setBackground(new Color(70, 130, 180));
-        btnUploadImage.setForeground(Color.WHITE);
-        btnUploadImage.addActionListener(e -> selectImage());
-        
-        imagePanel.add(lblImagePreview, BorderLayout.CENTER);
-        imagePanel.add(btnUploadImage, BorderLayout.SOUTH);
-        panel.add(imagePanel, gbc);
-        
+        txtRegID = createStyledTextField();
+        txtName = createStyledTextField();
+        txtDepartment = createStyledTextField();
+        txtPartner = createStyledTextField();
+        txtContact = createStyledTextField();
+        txtEmail = createStyledTextField();
+
+        // Form fields
+        String[] labels = {"Registration ID:", "Full Name:", "Department:",
+            "Dance Partner:", "Contact Number:", "Email Address:"};
+        JTextField[] fields = {txtRegID, txtName, txtDepartment, txtPartner, txtContact, txtEmail};
+
+        for (int i = 0; i < labels.length; i++) {
+            gbc.gridx = 0;
+            gbc.gridy = i;
+            JLabel label = new JLabel(labels[i]);
+            label.setFont(new Font("Arial", Font.BOLD, 14));
+            panel.add(label, gbc);
+
+            gbc.gridx = 1;
+            gbc.weightx = 1.0;
+            panel.add(fields[i], gbc);
+            gbc.weightx = 0.0;
+        }
+
         return panel;
     }
-    
+
     /**
-     * Helper method to add form fields
+     * Create image upload panel
      */
-    private void addFormField(JPanel panel, String labelText, JTextField textField, 
-                              GridBagConstraints gbc, int row) {
-        gbc.gridx = 0;
-        gbc.gridy = row;
-        JLabel label = new JLabel(labelText);
-        label.setFont(new Font("Arial", Font.BOLD, 14));
-        panel.add(label, gbc);
-        
-        gbc.gridx = 1;
-        textField.setFont(new Font("Arial", Font.PLAIN, 14));
-        textField.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(200, 200, 200)),
-            BorderFactory.createEmptyBorder(5, 5, 5, 5)
+    private JPanel createImagePanel() {
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        panel.setBackground(Color.WHITE);
+        panel.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(new Color(139, 0, 139), 2),
+                "ID Photo",
+                javax.swing.border.TitledBorder.DEFAULT_JUSTIFICATION,
+                javax.swing.border.TitledBorder.TOP,
+                new Font("Arial", Font.BOLD, 16),
+                new Color(139, 0, 139)
         ));
-        panel.add(textField, gbc);
+
+        lblImagePreview = new JLabel("No image selected", SwingConstants.CENTER);
+        lblImagePreview.setPreferredSize(new Dimension(200, 200));
+        lblImagePreview.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200), 2));
+        lblImagePreview.setBackground(Color.WHITE);
+        lblImagePreview.setOpaque(true);
+
+        btnUploadImage = createStyledButton("Upload Photo", new Color(70, 130, 180));
+        btnUploadImage.addActionListener(e -> selectImage());
+
+        JPanel buttonWrapper = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        buttonWrapper.setBackground(Color.WHITE);
+        buttonWrapper.add(btnUploadImage);
+
+        panel.add(lblImagePreview, BorderLayout.CENTER);
+        panel.add(buttonWrapper, BorderLayout.SOUTH);
+
+        return panel;
     }
-    
+
     /**
      * Create button panel
      */
     private JPanel createButtonPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new FlowLayout(FlowLayout.CENTER, 15, 15));
-        panel.setBackground(new Color(245, 245, 250));
-        
-        // Register Button
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        panel.setBackground(new Color(240, 240, 245));
+
         btnRegister = createStyledButton("Register", new Color(34, 139, 34));
         btnRegister.addActionListener(e -> registerParticipant());
-        
-        // Search Button
+
         btnSearch = createStyledButton("Search", new Color(30, 144, 255));
         btnSearch.addActionListener(e -> searchParticipant());
-        
-        // Update Button
+
         btnUpdate = createStyledButton("Update", new Color(255, 140, 0));
         btnUpdate.addActionListener(e -> updateParticipant());
-        
-        // Delete Button
+
         btnDelete = createStyledButton("Delete", new Color(220, 20, 60));
         btnDelete.addActionListener(e -> deleteParticipant());
-        
-        // Clear Button
+
         btnClear = createStyledButton("Clear", new Color(105, 105, 105));
         btnClear.addActionListener(e -> clearFields());
-        
-        // Exit Button
+
         btnExit = createStyledButton("Exit", new Color(178, 34, 34));
         btnExit.addActionListener(e -> exitApplication());
-        
+
         panel.add(btnRegister);
         panel.add(btnSearch);
         panel.add(btnUpdate);
         panel.add(btnDelete);
         panel.add(btnClear);
         panel.add(btnExit);
-        
+
         return panel;
     }
-    
+
+    /**
+     * Create styled text field
+     */
+    private JTextField createStyledTextField() {
+        JTextField textField = new JTextField(20);
+        textField.setFont(new Font("Arial", Font.PLAIN, 14));
+        textField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(200, 200, 200)),
+                BorderFactory.createEmptyBorder(8, 8, 8, 8)
+        ));
+        return textField;
+    }
+
     /**
      * Create styled button
      */
     private JButton createStyledButton(String text, Color color) {
         JButton button = new JButton(text);
-        button.setPreferredSize(new Dimension(120, 40));
-        button.setFont(new Font("Arial", Font.BOLD, 14));
+        button.setPreferredSize(new Dimension(100, 35));
+        button.setFont(new Font("Arial", Font.BOLD, 13));
         button.setBackground(color);
         button.setForeground(Color.WHITE);
         button.setFocusPainted(false);
-        button.setBorderPainted(false);
+        button.setBorder(BorderFactory.createEmptyBorder(8, 15, 8, 15));
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        
-        // Hover effect
+
         button.addMouseListener(new MouseAdapter() {
             public void mouseEntered(MouseEvent e) {
                 button.setBackground(color.darker());
             }
+
             public void mouseExited(MouseEvent e) {
                 button.setBackground(color);
             }
         });
-        
+
         return button;
     }
-    
+
     /**
      * Image selection using JFileChooser
      */
@@ -277,67 +339,67 @@ public class SALSARegistrationSystem extends JFrame {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("Select ID Photo");
         fileChooser.setFileFilter(new FileNameExtensionFilter(
-            "Image Files", "jpg", "jpeg", "png", "gif"));
-        
+                "Image Files", "jpg", "jpeg", "png", "gif"));
+
         int result = fileChooser.showOpenDialog(this);
         if (result == JFileChooser.APPROVE_OPTION) {
             File selectedFile = fileChooser.getSelectedFile();
             selectedImagePath = selectedFile.getAbsolutePath();
-            
-            // Display image preview
+
             ImageIcon imageIcon = new ImageIcon(selectedImagePath);
             Image image = imageIcon.getImage().getScaledInstance(
-                150, 150, Image.SCALE_SMOOTH);
+                    190, 190, Image.SCALE_SMOOTH);
             lblImagePreview.setIcon(new ImageIcon(image));
             lblImagePreview.setText("");
+            System.out.println("Image selected: " + selectedImagePath);
         }
     }
-    
+
     /**
      * Validate input fields
      */
     private boolean validateInput() {
-        // Check for empty fields
-        if (txtRegID.getText().trim().isEmpty() ||
-            txtName.getText().trim().isEmpty() ||
-            txtDepartment.getText().trim().isEmpty() ||
-            txtPartner.getText().trim().isEmpty() ||
-            txtContact.getText().trim().isEmpty() ||
-            txtEmail.getText().trim().isEmpty()) {
+        if (txtRegID.getText().trim().isEmpty()
+                || txtName.getText().trim().isEmpty()
+                || txtDepartment.getText().trim().isEmpty()
+                || txtPartner.getText().trim().isEmpty()
+                || txtContact.getText().trim().isEmpty()
+                || txtEmail.getText().trim().isEmpty()) {
             showError("All fields are required!");
             return false;
         }
-        
-        // Validate email format
+
         if (!EMAIL_PATTERN.matcher(txtEmail.getText().trim()).matches()) {
             showError("Invalid email format! Please enter a valid email address.");
             return false;
         }
-        
-        // Validate contact number (should be numeric and reasonable length)
+
         String contact = txtContact.getText().trim();
         if (!contact.matches("\\d{10,15}")) {
             showError("Invalid contact number! Please enter 10-15 digits.");
             return false;
         }
-        
+
         return true;
     }
-    
+
     /**
      * Register new participant
      */
     private void registerParticipant() {
+        if (!isDatabaseInitialized) {
+            showError("Database not initialized. Please check database configuration.");
+            return;
+        }
         if (!validateInput()) {
             return;
         }
-        
-        String sql = "INSERT INTO Participants (RegistrationID, Name, Department, " +
-                     "Partner, Contact, Email, ImagePath) VALUES (?, ?, ?, ?, ?, ?, ?)";
-        
-        try (Connection conn = DriverManager.getConnection(DB_URL);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
+
+        String sql = "INSERT INTO Participants (RegistrationID, Name, Department, "
+                + "Partner, Contact, Email, ImagePath) VALUES (?, ?, ?, ?, ?, ?, ?)";
+
+        try (Connection conn = DriverManager.getConnection(DB_URL); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
             pstmt.setString(1, txtRegID.getText().trim());
             pstmt.setString(2, txtName.getText().trim());
             pstmt.setString(3, txtDepartment.getText().trim());
@@ -345,14 +407,16 @@ public class SALSARegistrationSystem extends JFrame {
             pstmt.setString(5, txtContact.getText().trim());
             pstmt.setString(6, txtEmail.getText().trim());
             pstmt.setString(7, selectedImagePath);
-            
+
             int rowsInserted = pstmt.executeUpdate();
             if (rowsInserted > 0) {
                 showSuccess("Participant registered successfully!");
                 clearFields();
+                System.out.println("Registered participant: " + txtRegID.getText().trim());
             }
-            
+
         } catch (SQLException e) {
+            e.printStackTrace();
             if (e.getMessage().contains("duplicate")) {
                 showError("Registration ID already exists!");
             } else {
@@ -360,25 +424,28 @@ public class SALSARegistrationSystem extends JFrame {
             }
         }
     }
-    
+
     /**
      * Search participant by Registration ID
      */
     private void searchParticipant() {
+        if (!isDatabaseInitialized) {
+            showError("Database not initialized. Please check database configuration.");
+            return;
+        }
         String regID = txtRegID.getText().trim();
         if (regID.isEmpty()) {
             showError("Please enter Registration ID to search!");
             return;
         }
-        
+
         String sql = "SELECT * FROM Participants WHERE RegistrationID = ?";
-        
-        try (Connection conn = DriverManager.getConnection(DB_URL);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
+
+        try (Connection conn = DriverManager.getConnection(DB_URL); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
             pstmt.setString(1, regID);
             ResultSet rs = pstmt.executeQuery();
-            
+
             if (rs.next()) {
                 txtName.setText(rs.getString("Name"));
                 txtDepartment.setText(rs.getString("Department"));
@@ -386,44 +453,55 @@ public class SALSARegistrationSystem extends JFrame {
                 txtContact.setText(rs.getString("Contact"));
                 txtEmail.setText(rs.getString("Email"));
                 selectedImagePath = rs.getString("ImagePath");
-                
+
                 // Display image if available
                 if (selectedImagePath != null && !selectedImagePath.isEmpty()) {
                     File imgFile = new File(selectedImagePath);
                     if (imgFile.exists()) {
                         ImageIcon imageIcon = new ImageIcon(selectedImagePath);
                         Image image = imageIcon.getImage().getScaledInstance(
-                            150, 150, Image.SCALE_SMOOTH);
+                                190, 190, Image.SCALE_SMOOTH);
                         lblImagePreview.setIcon(new ImageIcon(image));
                         lblImagePreview.setText("");
+                        System.out.println("Loaded image for: " + regID);
+                    } else {
+                        System.out.println("Image file not found: " + selectedImagePath);
                     }
+                } else {
+                    lblImagePreview.setIcon(null);
+                    lblImagePreview.setText("No image");
                 }
-                
+
                 showSuccess("Participant found!");
+                System.out.println("Searched participant: " + regID);
             } else {
                 showError("No participant found with this Registration ID!");
             }
-            
+
         } catch (SQLException e) {
+            e.printStackTrace();
             showError("Search Error: " + e.getMessage());
         }
     }
-    
+
     /**
      * Update participant details
      */
     private void updateParticipant() {
+        if (!isDatabaseInitialized) {
+            showError("Database not initialized. Please check database configuration.");
+            return;
+        }
         if (!validateInput()) {
             return;
         }
-        
-        String sql = "UPDATE Participants SET Name = ?, Department = ?, " +
-                     "Partner = ?, Contact = ?, Email = ?, ImagePath = ? " +
-                     "WHERE RegistrationID = ?";
-        
-        try (Connection conn = DriverManager.getConnection(DB_URL);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
+
+        String sql = "UPDATE Participants SET Name = ?, Department = ?, "
+                + "Partner = ?, Contact = ?, Email = ?, ImagePath = ? "
+                + "WHERE RegistrationID = ?";
+
+        try (Connection conn = DriverManager.getConnection(DB_URL); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
             pstmt.setString(1, txtName.getText().trim());
             pstmt.setString(2, txtDepartment.getText().trim());
             pstmt.setString(3, txtPartner.getText().trim());
@@ -431,61 +509,68 @@ public class SALSARegistrationSystem extends JFrame {
             pstmt.setString(5, txtEmail.getText().trim());
             pstmt.setString(6, selectedImagePath);
             pstmt.setString(7, txtRegID.getText().trim());
-            
+
             int rowsUpdated = pstmt.executeUpdate();
             if (rowsUpdated > 0) {
                 showSuccess("Participant updated successfully!");
+                System.out.println("Updated participant: " + txtRegID.getText().trim());
             } else {
                 showError("No participant found with this Registration ID!");
             }
-            
+
         } catch (SQLException e) {
+            e.printStackTrace();
             showError("Update Error: " + e.getMessage());
         }
     }
-    
+
     /**
      * Delete participant
      */
     private void deleteParticipant() {
+        if (!isDatabaseInitialized) {
+            showError("Database not initialized. Please check database configuration.");
+            return;
+        }
         String regID = txtRegID.getText().trim();
         if (regID.isEmpty()) {
             showError("Please enter Registration ID to delete!");
             return;
         }
-        
+
         int confirm = JOptionPane.showConfirmDialog(
-            this,
-            "Are you sure you want to delete this participant?",
-            "Confirm Deletion",
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.WARNING_MESSAGE
+                this,
+                "Are you sure you want to delete this participant?",
+                "Confirm Deletion",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
         );
-        
+
         if (confirm != JOptionPane.YES_OPTION) {
             return;
         }
-        
+
         String sql = "DELETE FROM Participants WHERE RegistrationID = ?";
-        
-        try (Connection conn = DriverManager.getConnection(DB_URL);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
+
+        try (Connection conn = DriverManager.getConnection(DB_URL); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
             pstmt.setString(1, regID);
             int rowsDeleted = pstmt.executeUpdate();
-            
+
             if (rowsDeleted > 0) {
                 showSuccess("Participant deleted successfully!");
                 clearFields();
+                System.out.println("Deleted participant: " + regID);
             } else {
                 showError("No participant found with this Registration ID!");
             }
-            
+
         } catch (SQLException e) {
+            e.printStackTrace();
             showError("Delete Error: " + e.getMessage());
         }
     }
-    
+
     /**
      * Clear all input fields
      */
@@ -500,49 +585,53 @@ public class SALSARegistrationSystem extends JFrame {
         lblImagePreview.setIcon(null);
         lblImagePreview.setText("No image selected");
         txtRegID.requestFocus();
+        System.out.println("Fields cleared");
     }
-    
+
     /**
      * Exit application
      */
     private void exitApplication() {
         int confirm = JOptionPane.showConfirmDialog(
-            this,
-            "Are you sure you want to exit?",
-            "Exit Application",
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.QUESTION_MESSAGE
+                this,
+                "Are you sure you want to exit?",
+                "Exit Application",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE
         );
-        
+
         if (confirm == JOptionPane.YES_OPTION) {
+            System.out.println("Application exiting");
             System.exit(0);
         }
     }
-    
+
     /**
      * Show error message
      */
     private void showError(String message) {
+        System.err.println("Error: " + message);
         JOptionPane.showMessageDialog(
-            this,
-            message,
-            "Error",
-            JOptionPane.ERROR_MESSAGE
+                this,
+                message,
+                "Error",
+                JOptionPane.ERROR_MESSAGE
         );
     }
-    
+
     /**
      * Show success message
      */
     private void showSuccess(String message) {
+        System.out.println("Success: " + message);
         JOptionPane.showMessageDialog(
-            this,
-            message,
-            "Success",
-            JOptionPane.INFORMATION_MESSAGE
+                this,
+                message,
+                "Success",
+                JOptionPane.INFORMATION_MESSAGE
         );
     }
-    
+
     /**
      * Main method to launch application
      */
@@ -553,7 +642,7 @@ public class SALSARegistrationSystem extends JFrame {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        
+
         SwingUtilities.invokeLater(() -> {
             SALSARegistrationSystem app = new SALSARegistrationSystem();
             app.setVisible(true);
