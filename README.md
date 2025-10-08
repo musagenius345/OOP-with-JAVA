@@ -6,6 +6,14 @@
 [![License](https://img.shields.io/badge/License-Academic-green.svg)](LICENSE)
 
 ---
+GROUP MEMBERS
+1. Musa Badru VU-BCS-2507-0707-EVE
+2. BUSINGE Emmanuel Carlos VU-BIT-2411-0676-DAY
+3. Dani Joseph VU-BIT-2411-0677-DAY
+4. Jurua Arnold VU-BCS-2407-2095-DAY
+5. Ahmed mukhtar muse VU-BIT-2411-1144-DAY
+6. Lagu Emmanuel Onama Legge VU-DIT-2411-0349-DAY
+---
 
 ## 📋 Repository Overview
 
@@ -16,7 +24,7 @@ This repository contains complete solutions for the Object-Oriented Programming 
 
 ---
 
-## 📂 Repository Structure
+## Repository Structure
 
 ```
 VU-OOP-Java-Coursework/
@@ -40,7 +48,7 @@ VU-OOP-Java-Coursework/
 
 ---
 
-## 🎯 Project Summary
+## Project Summary
 
 ### Question 1: Projectile Motion Simulator (15 Marks)
 
@@ -84,7 +92,7 @@ VU-OOP-Java-Coursework/
 
 ---
 
-## 🚀 Quick Start Guide
+## Quick Start Guide
 
 ### Prerequisites
 
@@ -125,7 +133,7 @@ java -cp ".;../lib/*" SALSARegistrationSystem
 
 ---
 
-## 🛠️ Technologies Used
+## Technologies Used
 
 ### Programming Languages
 - **Java 8+** - Primary programming language
@@ -178,7 +186,7 @@ javadoc -d ../docs -cp "../lib/*" SALSARegistrationSystem.java
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ### Test Coverage
 
@@ -210,7 +218,7 @@ javadoc -d ../docs -cp "../lib/*" SALSARegistrationSystem.java
 
 ---
 
-## 🔒 Security Features
+## Security Features
 
 ### Question 2 Security Implementations:
 
