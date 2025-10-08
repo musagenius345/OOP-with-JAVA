@@ -9,7 +9,7 @@ A comprehensive Java desktop application for managing participant registrations 
 
 ---
 
-## 🎯 Learning Objectives
+## Learning Objectives
 
 - GUI development using Java Swing
 - Database integration with MS Access via JDBC
@@ -20,7 +20,7 @@ A comprehensive Java desktop application for managing participant registrations 
 
 ---
 
-## ✨ Key Features
+## Key Features
 
 ### 1. **User Registration**
 - Complete participant information capture
@@ -63,13 +63,13 @@ A comprehensive Java desktop application for managing participant registrations 
 
 | Column | Data Type | Constraints | Description |
 |--------|-----------|-------------|-------------|
-| RegistrationID | VARCHAR(50) | PRIMARY KEY | Unique identifier |
-| Name | VARCHAR(100) | NOT NULL | Full name |
-| Department | VARCHAR(100) | - | Academic department |
-| Partner | VARCHAR(100) | - | Dance partner name |
-| Contact | VARCHAR(20) | - | Phone number |
-| Email | VARCHAR(100) | - | Email address |
-| ImagePath | VARCHAR(255) | - | File path to ID photo |
+| RegistrationID | TEXT(50) | PRIMARY KEY | Unique identifier |
+| Name | TEXT(100) | NOT NULL | Full name |
+| Department | TEXT(100) | - | Academic department |
+| Partner | TEXT(100) | - | Dance partner name |
+| Contact | TEXT(20) | - | Phone number |
+| Email | TEXT(100) | - | Email address |
+| ImagePath | TEXT(255) | - | File path to ID photo |
 
 ### Sample Data (5 Records)
 
